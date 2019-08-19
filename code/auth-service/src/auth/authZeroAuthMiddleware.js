@@ -5,13 +5,13 @@ const secretStrategy = jwksRsa.expressJwtSecret({
   cache: true,
   rateLimit: true,
   jwksRequestsPerMinute: 10,
-  jwksUri: 'https://mjbr.eu.auth0.com/.well-known/jwks.json',
+  jwksUri: 'http://keycloak:8080/auth/realms/DataLabs/protocol/openid-connect/certs',
 });
 
 const baseConfig = {
   secret: secretStrategy,
-  audience: 'https://datalab-api.datalabs.nerc.ac.uk/',
-  issuer: 'https://mjbr.eu.auth0.com/',
+  audience: 'account',
+  issuer: 'http://keycloak:8080/auth/realms/DataLabs',
   algorithms: ['RS256'],
 };
 

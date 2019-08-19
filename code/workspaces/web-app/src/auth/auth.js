@@ -1,16 +1,17 @@
 import moment from 'moment';
 import Promise from 'bluebird';
-import auth0 from 'auth0-js';
+import jwt from 'jsonwebtoken';
+import Keycloak from 'keycloak-js';
 import { pick } from 'lodash';
 import cookies from './cookies';
 import { setSession, clearSession, getSession } from '../core/sessionUtil';
 import loginScreens from './auth0UniversalLoginScreens';
 
 class Auth {
-  constructor(authZeroInit, promisifyAuthZeroInit, authConfig) {
-    this.authConfig = authConfig;
-    this.authZeroAsync = promisifyAuthZeroInit;
-    this.authZeroInit = authZeroInit;
+  constructor(authInit, promisifyAuthInit) {
+    // this.authConfig = authConfig;
+    this.authInitAsync = promisifyAuthInit;
+    this.authInit = authInit;
     this.login = this.login.bind(this);
     this.signUp = this.signUp.bind(this);
     this.logout = this.logout.bind(this);
@@ -19,12 +20,13 @@ class Auth {
     this.expiresIn = this.expiresIn.bind(this);
     this.isAuthenticated = this.isAuthenticated.bind(this);
     this.getCurrentSession = this.getCurrentSession.bind(this);
+    this.redirectTo = '';
   }
 
   login() {
-    // User redirected to Auth0 login page
-    const state = JSON.stringify({ appRedirect: window.location.pathname });
-    this.authZeroInit.authorize({ state });
+    // User redirected to Keycloak login page
+    this.redirectTo = window.location.pathname;
+    this.authInit.login({ redirectUri: 'https://testlab.datalabs.localhost/callback' });
   }
 
   signUp() {
@@ -38,24 +40,19 @@ class Auth {
     // User redirected to home page on logout
     clearSession();
     cookies.clearAccessToken();
-    this.authZeroInit.logout({ returnTo: this.authConfig.returnTo });
+    this.authInit.logout({ redirectUri: 'https://testlab.datalabs.localhost' });
   }
 
-  handleAuthentication() {
-    return this.authZeroAsync.parseHashAsync()
-      .then(processHash);
+  parseHashParams(str) {
+    return JSON.parse(`{"${decodeURI(str.replace(/#/, '')).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g, '":"')}"}`);
+  }
+
+  handleAuthentication(callback) {
+    return Promise.resolve(processHash(this.parseHashParams(callback), this.redirectTo));
   }
 
   renewSession() {
-    const renewalAuthConfig = {
-      ...pick(this.authConfig, ['audience', 'scope']),
-      redirectUri: `${this.authConfig.returnTo}silent-callback`,
-      usePostMessage: true,
-    };
-    // Attempt to renew token in an iframe
-    return this.authZeroAsync.renewAuthAsync(renewalAuthConfig)
-      .then(processHash)
-      .catch(() => this.login()); // force login if renewAuth throws (user session expired)
+    return Promise.resolve(this.login());
   }
 
   expiresIn(expiresAt) {
@@ -79,9 +76,9 @@ class Auth {
   }
 }
 
-function processHash(authResponse) {
-  if (authResponse && authResponse.accessToken && authResponse.idToken) {
-    const unpackedResponse = processResponse(authResponse);
+function processHash(authResponse, redirectTo) {
+  if (authResponse && authResponse.access_token && authResponse.id_token) {
+    const unpackedResponse = processResponse(authResponse, redirectTo);
     cookies.storeAccessToken(unpackedResponse);
     setSession(unpackedResponse);
     return unpackedResponse;
@@ -89,11 +86,12 @@ function processHash(authResponse) {
   return null;
 }
 
-function processResponse(authResponse) {
+function processResponse(authResponse, redirectTo) {
+  const idTokenPayload = jwt.decode(authResponse.id_token);
   const state = processState(authResponse.state);
-  const appRedirect = state ? state.appRedirect : undefined;
+  const appRedirect = redirectTo;
   const expiresAt = authResponse.expiresAt || expiresAtCalculator(authResponse.expiresIn);
-  const identity = authResponse.identity || processIdentity(authResponse.idTokenPayload);
+  const identity = authResponse.identity || processIdentity(idTokenPayload);
 
   return {
     ...authResponse,
@@ -126,10 +124,10 @@ let authSession;
 
 const initialiseAuth = (authConfig) => {
   if (!authSession) {
-    const AuthZero = new auth0.WebAuth(authConfig);
-    const PromisifyAuthZero = Promise.promisifyAll(AuthZero);
-
-    authSession = new Auth(AuthZero, PromisifyAuthZero, authConfig);
+    const keycloak = Keycloak('https://testlab.datalabs.localhost/keycloak.json');
+    const PromisifyKeyCloak = Promise.promisifyAll(keycloak);
+    keycloak.init({ flow: 'implicit' });
+    authSession = new Auth(keycloak, PromisifyKeyCloak);
   }
 };
 

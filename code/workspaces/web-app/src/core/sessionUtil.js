@@ -2,9 +2,9 @@ import { entries, values, isEqual } from 'lodash';
 import { addToLocalStorage, removeFromLocalStorage, getFromLocalStorage } from './localStorageUtil';
 
 const localStorageFields = {
-  access_token: 'accessToken',
+  access_token: 'access_token',
   expires_at: 'expiresAt',
-  id_token: 'idToken',
+  id_token: 'id_token',
   identity: 'identity',
 };
 

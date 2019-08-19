@@ -9,6 +9,7 @@ x-common-variables: &common
   LOG_LEVEL: ${LOG_LEVEL:-info}
   VAULT_API: http://vault:8200
   VAULT_APP_ROLE: ${VAULT_APP_ROLE}
+  AUTHORISATION_SERVICE_STUB: 'true'
 
 services:
   datalab-auth:
@@ -60,6 +61,7 @@ services:
       - datalab-infra
       - mongodb
       - vault
+      - keycloak
 
   datalab-app:
     image: node:8

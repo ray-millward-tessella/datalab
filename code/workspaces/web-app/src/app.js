@@ -6,12 +6,12 @@ import configureStore from './store/configureStore';
 import theme from './theme';
 import Router from './router';
 import { initialiseAuth } from './auth/auth';
-import getAuthConfig from './auth/authConfig';
+//import getAuthConfig from './auth/authConfig';
 
 async function createApplication() {
   const store = configureStore();
-  const authConfig = await getAuthConfig();
-  initialiseAuth(authConfig);
+  // const authConfig = await getAuthConfig();
+  initialiseAuth();
 
   ReactDOM.render(
     <Provider store={store}>
